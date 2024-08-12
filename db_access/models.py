@@ -1,7 +1,8 @@
+import uuid
+
 from sqlalchemy import Column, Integer, String, Float, ForeignKey, Date, CheckConstraint, UniqueConstraint
-from sqlalchemy.orm import relationship, sessionmaker
+from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import create_engine
 
 
 Base = declarative_base()
@@ -21,7 +22,6 @@ class Product(Base):
 
 class Customer(Base):
     __tablename__ = 'customer'
-    
     customer_id = Column(String, primary_key=True)
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
@@ -31,6 +31,13 @@ class Customer(Base):
     __table_args__ = (
         UniqueConstraint('first_name', 'last_name', 'email', name='unique_customer'),
     )
+    
+    def __init__(self, first_name, last_name, email, birthdate):
+        self.customer_id = str(uuid.uuid4())
+        self.first_name = first_name
+        self.last_name = last_name
+        self.email = email
+        self.birthdate = birthdate
 
 class Shop(Base):
     __tablename__ = 'shop'
@@ -41,8 +48,8 @@ class Shop(Base):
 
 class OrderHeader(Base):
     __tablename__ = 'order_header'
-    
-    order_id = Column(String, primary_key=True)
+
+    order_id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     customer_id = Column(String, ForeignKey('customer.customer_id'), nullable=False)
     manufacturer = Column(String, nullable=False)
     manufactur_place = Column(String, nullable=False)
@@ -51,11 +58,16 @@ class OrderHeader(Base):
     
     customer = relationship("Customer", back_populates="orders")
     shop = relationship("Shop", back_populates="orders")
-
+    def __init__(self, customer_id, manufacturer, manufactur_place, shopnumber, date):
+        self.order_id = str(uuid.uuid4())
+        self.customer_id = customer_id
+        self.manufacturer = manufacturer
+        self.manufactur_place = manufactur_place
+        self.shopnumber = shopnumber
+        self.date = date
 class OrderItem(Base):
-    __tablename__ = 'order_item'
-    
-    id = Column(String, primary_key=True)
+    __tablename__ = 'order_item'    
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     order_id = Column(String, ForeignKey('order_header.order_id'), nullable=False)
     articlenumber = Column(Integer, ForeignKey('product.articlenumber'), nullable=False)
     articlename = Column(String, nullable=False)
@@ -70,6 +82,15 @@ class OrderItem(Base):
     __table_args__ = (
         CheckConstraint('price == ROUND(price, 2)', name='check_order_item_price'),
     )
+    def __init__(self, order_id, articlenumber, articlename, quantity, price, currency, order_date):
+        self.id = str(uuid.uuid4())
+        self.order_id = order_id
+        self.articlenumber = articlenumber
+        self.articlename = articlename
+        self.quantity = quantity
+        self.price = price
+        self.currency = currency
+        self.order_date = order_date
 
 
 

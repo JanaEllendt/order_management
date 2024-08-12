@@ -9,10 +9,27 @@ from db_access.models import Base, Product, Customer, Shop, OrderHeader, OrderIt
 
 # Database connection setup (adjust the connection string as necessary)
 DATABASE_URL = "sqlite:///orders.db"  # Example using SQLite
-engine = create_engine(DATABASE_URL)
-Base.metadata.create_all(engine)
-Session = sessionmaker(bind=engine)
-session = Session()
+
+
+# engine = create_engine(DATABASE_URL)
+# Base.metadata.create_all(engine)
+# Session = sessionmaker(bind=engine)
+# session = Session()
+
+# Session State also supports attribute based syntax
+if 'database_engine' not in st.session_state:
+    engine = create_engine(DATABASE_URL)
+    Base.metadata.create_all(engine)
+    st.session_state.database_engine = engine
+else:
+    engine = st.session_state.database_engine
+    
+if 'database_session' not in st.session_state: 
+    Session = sessionmaker(bind=engine)
+    session = Session()   
+    st.session_state.database_session = session
+else:
+    session = st.session_state.database_session
 
 # Sidebar navigation
 st.sidebar.title("Navigation")
@@ -30,10 +47,10 @@ def product_maintenance():
     
     # Add new product
     with st.form("Add Product"):
-        articlenumber = st.number_input("Article Number", value=0)
+        articlenumber = st.text_input("Article Number", value=0)
         articlename = st.text_input("Article Name")
         price = st.number_input("Price", value=0.0, format="%.2f")
-        currency = st.text_input("Currency", value="USD")
+        currency = st.text_input("Currency", value="EUR")
         submit = st.form_submit_button("Add Product")
         
         if submit:
@@ -41,6 +58,17 @@ def product_maintenance():
             session.add(product)
             session.commit()
             st.success("Product added successfully!")
+            
+    
+    # Delete product
+    st.subheader("Delete Product")
+    product_to_delete = st.selectbox("Select Product to Delete", options=[p.articlenumber for p in products])
+    if st.button("Delete Product"):
+        product = session.query(Product).filter(Product.articlenumber == product_to_delete).first()
+        if product:
+            session.delete(product)
+            session.commit()
+            st.success("Product deleted successfully!")
 
 # Customer Maintenance Page
 def customer_maintenance():
@@ -48,13 +76,12 @@ def customer_maintenance():
     
     # Show existing customers
     customers = session.query(Customer).all()
-    customer_df = pd.DataFrame([(c.customer_id, c.first_name, c.last_name, c.email, c.birthdate) for c in customers],
-                               columns=["Customer ID", "First Name", "Last Name", "Email", "Birthdate"])
+    customer_df = pd.DataFrame([(c.first_name, c.last_name, c.email, c.birthdate) for c in customers],
+                               columns=["First Name", "Last Name", "Email", "Birthdate"])
     st.dataframe(customer_df)
     
     # Add new customer
     with st.form("Add Customer"):
-        customer_id = st.text_input("Customer ID")
         first_name = st.text_input("First Name")
         last_name = st.text_input("Last Name")
         email = st.text_input("Email")
@@ -62,10 +89,22 @@ def customer_maintenance():
         submit = st.form_submit_button("Add Customer")
         
         if submit:
-            customer = Customer(customer_id=customer_id, first_name=first_name, last_name=last_name, email=email, birthdate=birthdate)
+            customer = Customer(first_name=first_name, last_name=last_name, email=email, birthdate=birthdate)
             session.add(customer)
             session.commit()
             st.success("Customer added successfully!")
+            
+    
+    # Delete customer
+    st.subheader("Delete Customer")
+    customer_to_delete = st.selectbox("Select Customer to Delete", options=[f"{c.first_name} {c.last_name} ({c.customer_id})" for c in customers])
+    if st.button("Delete Customer"):
+        customer_id = customer_to_delete.split("(")[-1].strip(")")
+        customer = session.query(Customer).filter(Customer.customer_id == customer_id).first()
+        if customer:
+            session.delete(customer)
+            session.commit()
+            st.success("Customer deleted successfully!")
 
 # Shop Maintenance Page
 def shop_maintenance():
@@ -89,6 +128,17 @@ def shop_maintenance():
             session.add(shop)
             session.commit()
             st.success("Shop added successfully!")
+            
+            
+    # Delete shop
+    st.subheader("Delete Shop")
+    shop_to_delete = st.selectbox("Select Shop to Delete", options=[s.shopnumber for s in shops])
+    if st.button("Delete Shop"):
+        shop = session.query(Shop).filter(Shop.shopnumber == shop_to_delete).first()
+        if shop:
+            session.delete(shop)
+            session.commit()
+            st.success("Shop deleted successfully!")
 
 # Order Creation Page
 def order_creation():
@@ -129,20 +179,21 @@ def order_creation():
             item = {"articlenumber": articlenumber, "articlename": articlename, "quantity": quantity, "price": price, "currency": currency}
             st.session_state['order_items'].append(item)
             st.success("Item added!")
+
+            
     
     # Display order items
     items_df = pd.DataFrame(st.session_state['order_items'])
     st.dataframe(items_df)
     
     # Submit order
-    if st.button("Submit Order"):
-        order_id = f"ORD{len(st.session_state['order_items'])}"  # Simple order_id generation
-        order = OrderHeader(order_id=order_id, customer_id=customer_id, manufacturer=manufacturer, manufactur_place=manufactur_place, shopnumber=shopnumber, date=order_date)
+    if st.button("Submit Order"):       
+        order = OrderHeader(customer_id=customer_id, manufacturer=manufacturer, manufactur_place=manufactur_place, shopnumber=shopnumber, date=order_date)
         session.add(order)
         session.commit()
         
         for item in st.session_state['order_items']:
-            order_item = OrderItem(id=f"{order_id}_{item['articlenumber']}", order_id=order_id, articlenumber=item['articlenumber'], articlename=item['articlename'], quantity=item['quantity'], price=item['price'], currency=item['currency'], order_date=order_date)
+            order_item = OrderItem(order_id=order.order_id, articlenumber=item['articlenumber'], articlename=item['articlename'], quantity=item['quantity'], price=item['price'], currency=item['currency'], order_date=order_date)
             session.add(order_item)
         session.commit()
         
@@ -215,3 +266,4 @@ elif pages == "Order Creation":
     order_creation()
 elif pages == "Order Analysis":
     order_analysis()
+

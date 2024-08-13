@@ -7,17 +7,10 @@ from sqlalchemy.orm import sessionmaker
 
 from db_access.models import Base, Product, Customer, Shop, OrderHeader, OrderItem
 
-# Database connection setup (adjust the connection string as necessary)
-DATABASE_URL = "sqlite:///orders.db"  # Example using SQLite
 
 
-# engine = create_engine(DATABASE_URL)
-# Base.metadata.create_all(engine)
-# Session = sessionmaker(bind=engine)
-# session = Session()
-
-# Session State also supports attribute based syntax
 if 'database_engine' not in st.session_state:
+    DATABASE_URL = "sqlite:///orders.db" 
     engine = create_engine(DATABASE_URL)
     Base.metadata.create_all(engine)
     st.session_state.database_engine = engine
